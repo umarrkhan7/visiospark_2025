@@ -39,6 +39,8 @@ import '../screens/events/event_form_screen.dart';
 import '../screens/events/event_registrations_screen.dart';
 import '../screens/events/event_feedback_screen.dart';
 
+import '../screens/dashboard/analytics_screen.dart';
+
 class AppRoutes {
   static Map<String, WidgetBuilder> get routes {
     return {
@@ -64,6 +66,9 @@ class AppRoutes {
       // Event routes (simple ones without arguments)
       AppConstants.eventsRoute: (context) => const EventsListScreen(),
       AppConstants.myEventsRoute: (context) => const MyEventsScreen(),
+      
+      // Analytics route
+      AppConstants.societyAnalyticsRoute: (context) => const AnalyticsScreen(),
     };
   }
 

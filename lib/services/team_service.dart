@@ -58,21 +58,25 @@ class TeamService {
           .eq('event_id', eventId)
           .order('created_at', ascending: false);
 
-      // Then get member counts separately
+      // Then get members for each team separately
       final teams = <TeamModel>[];
       for (final teamJson in (teamsResponse as List)) {
         final teamId = teamJson['id'] as String;
         
-        // Get member count for this team
+        // Get members for this team
         final membersResponse = await _client
             .from('team_members')
-            .select('id')
+            .select('*, profiles(full_name, avatar_url, email)')
             .eq('team_id', teamId);
         
-        final memberCount = (membersResponse as List).length;
+        final membersList = (membersResponse as List);
+        final memberCount = membersList.length;
+        
+        AppLogger.debug('Team ${teamJson['name']}: $memberCount members');
         
         final modifiedJson = Map<String, dynamic>.from(teamJson);
         modifiedJson['member_count'] = memberCount;
+        modifiedJson['team_members'] = membersList;
         
         teams.add(TeamModel.fromJson(modifiedJson));
       }
