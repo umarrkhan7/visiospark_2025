@@ -192,4 +192,109 @@ class DashboardService {
       return 'Just now';
     }
   }
+
+  // Analytics for society handlers
+  Future<Map<String, dynamic>> getAnalytics(String societyId) async {
+    try {
+      AppLogger.debug('Fetching analytics for society: $societyId');
+
+      // Get all events for this society
+      final eventsResponse = await _client
+          .from('events')
+          .select('id, title, event_type, created_at, date_time')
+          .eq('society_id', societyId);
+
+      final events = eventsResponse as List;
+      
+      // Get registrations for each event
+      final eventsWithStats = <Map<String, dynamic>>[];
+      var totalRegistrations = 0;
+      
+      for (final event in events) {
+        final eventId = event['id'];
+        
+        final registrationsResponse = await _client
+            .from('event_registrations')
+            .select('id, created_at')
+            .eq('event_id', eventId)
+            .eq('status', 'registered');
+        
+        final registrations = (registrationsResponse as List).length;
+        totalRegistrations += registrations;
+        
+        eventsWithStats.add({
+          'id': eventId,
+          'title': event['title'],
+          'type': event['event_type'],
+          'registrations': registrations,
+          'date': event['date_time'],
+        });
+      }
+
+      // Get feedback/ratings
+      final feedbackResponse = await _client
+          .from('event_feedback')
+          .select('rating')
+          .inFilter('event_id', events.map((e) => e['id']).toList());
+      
+      final feedbackList = feedbackResponse as List;
+      final totalFeedback = feedbackList.length;
+      final avgRating = totalFeedback > 0
+          ? feedbackList.map((f) => f['rating'] as int).reduce((a, b) => a + b) / totalFeedback
+          : 0.0;
+
+      // Registrations by day (last 30 days)
+      final thirtyDaysAgo = DateTime.now().subtract(const Duration(days: 30));
+      final registrationsByDayResponse = await _client
+          .from('event_registrations')
+          .select('created_at')
+          .inFilter('event_id', events.map((e) => e['id']).toList())
+          .gte('created_at', thirtyDaysAgo.toIso8601String());
+
+      final registrationsByDay = <String, int>{};
+      for (final reg in (registrationsByDayResponse as List)) {
+        final date = DateTime.parse(reg['created_at']).toIso8601String().split('T')[0];
+        registrationsByDay[date] = (registrationsByDay[date] ?? 0) + 1;
+      }
+
+      // Events by type
+      final eventsByType = <String, int>{};
+      for (final event in events) {
+        final type = event['event_type'] ?? 'Other';
+        eventsByType[type] = (eventsByType[type] ?? 0) + 1;
+      }
+
+      // Calculate trends
+      final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
+      final fourteenDaysAgo = DateTime.now().subtract(const Duration(days: 14));
+      
+      final last7DaysRegs = (registrationsByDayResponse as List)
+          .where((r) => DateTime.parse(r['created_at']).isAfter(sevenDaysAgo))
+          .length;
+      
+      final previous7DaysRegs = (registrationsByDayResponse as List)
+          .where((r) {
+            final date = DateTime.parse(r['created_at']);
+            return date.isAfter(fourteenDaysAgo) && date.isBefore(sevenDaysAgo);
+          })
+          .length;
+
+      AppLogger.success('Analytics fetched successfully');
+
+      return {
+        'total_events': events.length,
+        'total_registrations': totalRegistrations,
+        'total_feedback': totalFeedback,
+        'avg_rating': avgRating,
+        'events': eventsWithStats,
+        'registrations_by_day': registrationsByDay,
+        'events_by_type': eventsByType,
+        'last_7_days_registrations': last7DaysRegs,
+        'previous_7_days_registrations': previous7DaysRegs,
+      };
+    } catch (e) {
+      AppLogger.error('Error fetching analytics', e);
+      rethrow;
+    }
+  }
 }

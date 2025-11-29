@@ -6,6 +6,7 @@ import '../dashboard/student_dashboard_screen.dart';
 import '../dashboard/society_handler_dashboard_screen.dart';
 import '../events/events_list_screen.dart';
 import '../chat/chat_list_screen.dart';
+import '../chat/all_teams_screen.dart';
 import '../forum/forum_list_screen.dart';
 import '../profile/profile_screen.dart';
 
@@ -40,7 +41,8 @@ class _HomeScreenState extends State<HomeScreen> {
             const StudentDashboardScreen(), // Student Dashboard
             const EventsListScreen(), // Events
             const ChatListScreen(),
-            const ForumListScreen(),
+            const AllTeamsScreen(), // Teams
+            const ForumListScreen(), // Forum
             const ProfileScreen(),
           ];
 
@@ -88,6 +90,11 @@ class _HomeScreenState extends State<HomeScreen> {
               icon: Icon(Icons.chat_outlined),
               selectedIcon: Icon(Icons.chat),
               label: 'Chats',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.groups_outlined),
+              selectedIcon: Icon(Icons.groups),
+              label: 'Teams',
             ),
             NavigationDestination(
               icon: Icon(Icons.forum_outlined),
