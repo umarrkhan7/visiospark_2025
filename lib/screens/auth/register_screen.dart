@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/constants.dart';
 import '../../core/utils/validators.dart';
+import '../../core/utils/logger.dart';
 import '../../providers/auth_provider.dart';
+import '../../services/society_service.dart';
+import '../../models/society_model.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/common/custom_button.dart';
 import '../../widgets/common/custom_text_field.dart';
@@ -21,10 +24,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  final SocietyService _societyService = SocietyService();
   
   String _selectedRole = AppConstants.roleStudent;
   String? _selectedSocietyId;
   List<String> _selectedInterests = [];
+  List<SocietyModel> _societies = [];
+  bool _loadingSocieties = true;
   
   final List<String> _availableInterests = [
     'Technical',
@@ -36,12 +42,27 @@ class _RegisterScreenState extends State<RegisterScreen> {
     'Gaming',
     'Entrepreneurship',
   ];
-  
-  final Map<String, String> _societies = {
-    AppConstants.societyACM: 'ACM - Association for Computing Machinery',
-    AppConstants.societyCLS: 'CLS - Cultural & Literary Society',
-    AppConstants.societyCSS: 'CSS - Computer Science Society',
-  };
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSocieties();
+  }
+
+  Future<void> _loadSocieties() async {
+    try {
+      final societies = await _societyService.getAllSocieties();
+      setState(() {
+        _societies = societies;
+        _loadingSocieties = false;
+      });
+    } catch (e) {
+      AppLogger.error('Error loading societies', e);
+      setState(() {
+        _loadingSocieties = false;
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -236,31 +257,33 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  Container(
-                    decoration: BoxDecoration(
-                      border: Border.all(color: AppColors.gray300),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: DropdownButtonFormField<String>(
-                      value: _selectedSocietyId,
-                      decoration: const InputDecoration(
-                        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        border: InputBorder.none,
-                        hintText: 'Choose a society',
-                      ),
-                      items: _societies.entries.map((entry) {
-                        return DropdownMenuItem(
-                          value: entry.key,
-                          child: Text(entry.value),
-                        );
-                      }).toList(),
-                      onChanged: (value) {
-                        setState(() {
-                          _selectedSocietyId = value;
-                        });
-                      },
-                    ),
-                  ),
+                  _loadingSocieties
+                      ? const Center(child: CircularProgressIndicator())
+                      : Container(
+                          decoration: BoxDecoration(
+                            border: Border.all(color: AppColors.gray300),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: DropdownButtonFormField<String>(
+                            value: _selectedSocietyId,
+                            decoration: const InputDecoration(
+                              contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              border: InputBorder.none,
+                              hintText: 'Choose a society',
+                            ),
+                            items: _societies.map((society) {
+                              return DropdownMenuItem(
+                                value: society.id,
+                                child: Text('${society.shortName} - ${society.name}'),
+                              );
+                            }).toList(),
+                            onChanged: (value) {
+                              setState(() {
+                                _selectedSocietyId = value;
+                              });
+                            },
+                          ),
+                        ),
                   const SizedBox(height: 24),
                 ],
                 
