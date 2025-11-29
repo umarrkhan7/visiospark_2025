@@ -32,14 +32,14 @@ class EventService {
       }
 
       if (startDate != null) {
-        query = query.gte('start_time', startDate.toIso8601String());
+        query = query.gte('date_time', startDate.toIso8601String());
       }
 
       if (endDate != null) {
-        query = query.lte('start_time', endDate.toIso8601String());
+        query = query.lte('date_time', endDate.toIso8601String());
       }
 
-      final response = await query.order('start_time');
+      final response = await query.order('date_time');
 
       final events = (response as List)
           .map((json) => EventModel.fromJson(json))
@@ -84,13 +84,13 @@ class EventService {
           .from('events')
           .select('*, societies!inner(*)')
           .eq('status', 'upcoming')
-          .gte('start_time', DateTime.now().toIso8601String());
+          .gte('date_time', DateTime.now().toIso8601String());
 
       if (societyId != null) {
         query = query.eq('society_id', societyId);
       }
 
-      final response = await query.order('start_time');
+      final response = await query.order('date_time');
 
       final events = (response as List)
           .map((json) => EventModel.fromJson(json))
@@ -127,15 +127,15 @@ class EventService {
             'title': title,
             'description': description,
             'society_id': societyId,
-            'start_time': startTime.toIso8601String(),
+            'date_time': startTime.toIso8601String(),
             'end_time': endTime.toIso8601String(),
-            'location': location,
+            'venue': location,
             'event_type': eventType,
-            'max_participants': maxParticipants,
+            'capacity': maxParticipants ?? 100,
             'image_url': imageUrl,
             'tags': tags,
-            'metadata': metadata,
             'status': 'upcoming',
+            'created_by': SupabaseConfig.currentUserId!,
             'created_at': DateTime.now().toIso8601String(),
           })
           .select('*, societies!inner(*)')
@@ -173,15 +173,14 @@ class EventService {
 
       if (title != null) updates['title'] = title;
       if (description != null) updates['description'] = description;
-      if (startTime != null) updates['start_time'] = startTime.toIso8601String();
+      if (startTime != null) updates['date_time'] = startTime.toIso8601String();
       if (endTime != null) updates['end_time'] = endTime.toIso8601String();
-      if (location != null) updates['location'] = location;
+      if (location != null) updates['venue'] = location;
       if (eventType != null) updates['event_type'] = eventType;
-      if (maxParticipants != null) updates['max_participants'] = maxParticipants;
+      if (maxParticipants != null) updates['capacity'] = maxParticipants;
       if (status != null) updates['status'] = status;
       if (imageUrl != null) updates['image_url'] = imageUrl;
       if (tags != null) updates['tags'] = tags;
-      if (metadata != null) updates['metadata'] = metadata;
 
       final response = await _client
           .from('events')
@@ -223,7 +222,6 @@ class EventService {
           .from('events')
           .update({
             'status': 'cancelled',
-            'metadata': {'cancellation_reason': reason},
             'updated_at': DateTime.now().toIso8601String(),
           })
           .eq('id', id)
@@ -247,9 +245,9 @@ class EventService {
           .from('events')
           .select('*, societies!inner(*)')
           .eq('status', 'upcoming')
-          .gte('start_time', DateTime.now().toIso8601String())
+          .gte('date_time', DateTime.now().toIso8601String())
           .overlaps('tags', interests)
-          .order('start_time')
+          .order('date_time')
           .limit(20);
 
       final events = (response as List)
@@ -273,7 +271,7 @@ class EventService {
           .from('events')
           .select('*, societies!inner(*)')
           .or('title.ilike.%$query%,description.ilike.%$query%')
-          .order('start_time');
+          .order('date_time');
 
       final events = (response as List)
           .map((json) => EventModel.fromJson(json))

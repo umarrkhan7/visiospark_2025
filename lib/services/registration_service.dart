@@ -204,8 +204,8 @@ class RegistrationService {
           .select('*, events!inner(*, societies!inner(*)), profiles!inner(*)')
           .eq('user_id', userId)
           .eq('status', 'registered')
-          .gte('events.start_time', DateTime.now().toIso8601String())
-          .order('events.start_time');
+          .gte('events.date_time', DateTime.now().toIso8601String())
+          .order('events.date_time');
 
       final registrations = (response as List)
           .map((json) => RegistrationModel.fromJson(json))
@@ -229,7 +229,7 @@ class RegistrationService {
           .select('*, events!inner(*, societies!inner(*)), profiles!inner(*)')
           .eq('user_id', userId)
           .lt('events.end_time', DateTime.now().toIso8601String())
-          .order('events.start_time', ascending: false);
+          .order('events.date_time', ascending: false);
 
       final registrations = (response as List)
           .map((json) => RegistrationModel.fromJson(json))
