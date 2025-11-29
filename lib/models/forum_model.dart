@@ -38,7 +38,7 @@ class ForumPostModel {
   factory ForumPostModel.fromJson(Map<String, dynamic> json) {
     return ForumPostModel(
       id: json['id'] as String,
-      userId: (json['author_id'] ?? json['user_id']) as String,
+      userId: (json['author_id'] ?? json['user_id'] ?? '') as String,
       title: json['title'] as String,
       content: json['content'] as String,
       category: json['category'] as String?,
@@ -137,7 +137,7 @@ class CommentModel {
     return CommentModel(
       id: json['id'] as String,
       postId: json['post_id'] as String,
-      userId: (json['author_id'] ?? json['user_id']) as String,
+      userId: (json['author_id'] ?? json['user_id'] ?? '') as String,
       parentId: json['parent_id'] as String?,
       content: json['content'] as String,
       upvotes: json['upvotes'] as int? ?? 0,

@@ -12,6 +12,39 @@ import '../../widgets/cards/stat_card.dart';
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
 
+  void _showLogoutDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) => AlertDialog(
+        title: const Text('Logout'),
+        content: const Text('Are you sure you want to logout?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(dialogContext);
+              await context.read<AuthProvider>().signOut();
+              if (context.mounted) {
+                Navigator.pushNamedAndRemoveUntil(
+                  context,
+                  AppConstants.loginRoute,
+                  (route) => false,
+                );
+              }
+            },
+            child: Text(
+              'Logout',
+              style: TextStyle(color: AppColors.error),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
@@ -119,6 +152,15 @@ class ProfileScreen extends StatelessWidget {
                     onTap: () {
                       Navigator.pushNamed(context, AppConstants.settingsRoute);
                     },
+                  ),
+                  const Divider(height: 1),
+                  ListTile(
+                    leading: Icon(Icons.logout, color: AppColors.error),
+                    title: Text(
+                      'Logout',
+                      style: TextStyle(color: AppColors.error),
+                    ),
+                    onTap: () => _showLogoutDialog(context),
                   ),
                 ],
               ),
