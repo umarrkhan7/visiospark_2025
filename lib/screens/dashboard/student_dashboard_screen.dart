@@ -595,15 +595,38 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
           ),
         ),
         const SizedBox(height: 12),
-        ListView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          itemCount: _upcomingEvents.length,
-          itemBuilder: (context, index) {
-            return _buildUpcomingEventCard(_upcomingEvents[index]);
-          },
-        ),
+        _upcomingEvents.isEmpty
+            ? Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+                child: Center(
+                  child: Column(
+                    children: [
+                      Icon(
+                        Icons.event_busy,
+                        size: 48,
+                        color: AppColors.gray400,
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'No upcoming events',
+                        style: TextStyle(
+                          color: AppColors.gray500,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            : ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                itemCount: _upcomingEvents.length,
+                itemBuilder: (context, index) {
+                  return _buildUpcomingEventCard(_upcomingEvents[index]);
+                },
+              ),
       ],
     );
   }

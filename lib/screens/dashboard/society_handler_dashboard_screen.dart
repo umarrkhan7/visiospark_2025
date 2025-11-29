@@ -24,6 +24,7 @@ class _SocietyHandlerDashboardScreenState extends State<SocietyHandlerDashboardS
   SocietyModel? _society;
   List<EventModel> _societyEvents = [];
   Map<String, dynamic>? _societyStats;
+  List<Map<String, dynamic>> _recentActivities = [];
   bool _isLoading = true;
 
   @override
@@ -46,11 +47,50 @@ class _SocietyHandlerDashboardScreenState extends State<SocietyHandlerDashboardS
       final society = await _societyService.getSocietyById(societyId);
       final events = await _eventService.getEvents(societyId: societyId);
       final stats = await _societyService.getSocietyStats(societyId);
+      
+      // Build recent activities from events
+      final activities = <Map<String, dynamic>>[];
+      
+      // Add recently created events
+      final recentEvents = events
+          .where((e) => e.createdAt.isAfter(DateTime.now().subtract(const Duration(days: 7))))
+          .take(3)
+          .toList();
+      recentEvents.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      
+      for (final event in recentEvents) {
+        activities.add({
+          'icon': Icons.event,
+          'title': 'Event "${event.title}" created',
+          'time': _getRelativeTime(event.createdAt),
+          'color': AppColors.primary,
+        });
+      }
+      
+      // Add completed events
+      final completedEvents = events
+          .where((e) => e.status == 'completed' && e.dateTime.isAfter(DateTime.now().subtract(const Duration(days: 7))))
+          .take(2)
+          .toList();
+      completedEvents.sort((a, b) => b.dateTime.compareTo(a.dateTime));
+      
+      for (final event in completedEvents) {
+        activities.add({
+          'icon': Icons.check_circle,
+          'title': 'Event "${event.title}" completed',
+          'time': _getRelativeTime(event.dateTime),
+          'color': AppColors.success,
+        });
+      }
+      
+      // Sort all activities by time
+      activities.sort((a, b) => (b['time'] as String).compareTo(a['time'] as String));
 
       setState(() {
         _society = society;
         _societyEvents = events;
         _societyStats = stats;
+        _recentActivities = activities.take(5).toList();
         _isLoading = false;
       });
     } catch (e) {
@@ -328,7 +368,7 @@ class _SocietyHandlerDashboardScreenState extends State<SocietyHandlerDashboardS
                 Icons.event_note,
                 AppColors.success,
                 () {
-                  // Navigate to society events list
+                  Navigator.pushNamed(context, AppConstants.eventsRoute);
                 },
               ),
             ),
@@ -385,10 +425,14 @@ class _SocietyHandlerDashboardScreenState extends State<SocietyHandlerDashboardS
   }
 
   Widget _buildEventsSection() {
+    final now = DateTime.now();
     final upcomingEvents = _societyEvents
-        .where((e) => e.status == 'upcoming')
+        .where((e) => e.dateTime.isAfter(now) && e.status != 'cancelled')
         .take(5)
         .toList();
+    
+    // Sort by date
+    upcomingEvents.sort((a, b) => a.dateTime.compareTo(b.dateTime));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -402,7 +446,7 @@ class _SocietyHandlerDashboardScreenState extends State<SocietyHandlerDashboardS
             ),
             TextButton(
               onPressed: () {
-                // Navigate to all events
+                Navigator.pushNamed(context, AppConstants.eventsRoute);
               },
               child: const Text('View All'),
             ),
@@ -566,37 +610,71 @@ class _SocietyHandlerDashboardScreenState extends State<SocietyHandlerDashboardS
           style: Theme.of(context).textTheme.titleLarge,
         ),
         const SizedBox(height: 12),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                _buildActivityItem(
-                  Icons.person_add,
-                  'New registration for Tech Workshop',
-                  '2 hours ago',
-                  AppColors.success,
+        _recentActivities.isEmpty
+            ? Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(32),
+                  child: Center(
+                    child: Column(
+                      children: [
+                        Icon(
+                          Icons.history,
+                          size: 48,
+                          color: Colors.grey.shade400,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'No recent activity',
+                          style: TextStyle(
+                            color: Colors.grey.shade600,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-                const Divider(),
-                _buildActivityItem(
-                  Icons.event,
-                  'Event "Coding Challenge" created',
-                  '5 hours ago',
-                  AppColors.primary,
+              )
+            : Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: List.generate(
+                      _recentActivities.length * 2 - 1,
+                      (index) {
+                        if (index.isOdd) {
+                          return const Divider();
+                        }
+                        final activityIndex = index ~/ 2;
+                        final activity = _recentActivities[activityIndex];
+                        return _buildActivityItem(
+                          activity['icon'] as IconData,
+                          activity['title'] as String,
+                          activity['time'] as String,
+                          activity['color'] as Color,
+                        );
+                      },
+                    ),
+                  ),
                 ),
-                const Divider(),
-                _buildActivityItem(
-                  Icons.check_circle,
-                  'Event "Workshop 101" completed',
-                  '1 day ago',
-                  AppColors.info,
-                ),
-              ],
-            ),
-          ),
-        ),
+              ),
       ],
     );
+  }
+  
+  String _getRelativeTime(DateTime dateTime) {
+    final now = DateTime.now();
+    final difference = now.difference(dateTime);
+    
+    if (difference.inMinutes < 60) {
+      return '${difference.inMinutes} ${difference.inMinutes == 1 ? 'minute' : 'minutes'} ago';
+    } else if (difference.inHours < 24) {
+      return '${difference.inHours} ${difference.inHours == 1 ? 'hour' : 'hours'} ago';
+    } else if (difference.inDays < 7) {
+      return '${difference.inDays} ${difference.inDays == 1 ? 'day' : 'days'} ago';
+    } else {
+      return '${difference.inDays ~/ 7} ${difference.inDays ~/ 7 == 1 ? 'week' : 'weeks'} ago';
+    }
   }
 
   Widget _buildActivityItem(IconData icon, String title, String time, Color color) {

@@ -4,8 +4,12 @@ import '../../providers/auth_provider.dart';
 import '../../services/event_service.dart';
 import '../../services/registration_service.dart';
 import '../../services/feedback_service.dart';
+import '../../services/ai_service.dart';
+import '../../core/config/supabase_config.dart';
 import '../../models/event_model.dart';
 import '../../models/feedback_model.dart';
+import '../../models/event_question_model.dart';
+import '../../models/ai_message_model.dart';
 import '../../theme/app_colors.dart';
 import '../../core/constants/constants.dart';
 import '../../core/utils/logger.dart';
@@ -23,6 +27,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   final EventService _eventService = EventService();
   final RegistrationService _registrationService = RegistrationService();
   final FeedbackService _feedbackService = FeedbackService();
+  final AIService _aiService = AIService();
 
   EventModel? _event;
   bool _isLoading = true;
@@ -30,6 +35,12 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   bool _isRegistering = false;
   double _averageRating = 0.0;
   List<FeedbackModel> _feedbacks = [];
+  List<EventQuestionModel> _questions = [];
+  final TextEditingController _questionController = TextEditingController();
+  final TextEditingController _aiQuestionController = TextEditingController();
+  bool _isPostingQuestion = false;
+  List<AIMessageModel> _aiMessages = [];
+  bool _isAIThinking = false;
 
   @override
   void initState() {
@@ -56,12 +67,16 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
 
       final rating = await _feedbackService.getEventAverageRating(widget.eventId);
       final feedbacks = await _feedbackService.getEventFeedback(widget.eventId);
+      
+      // Load Q&A
+      final questions = await _loadQuestions();
 
       setState(() {
         _event = event;
         _isRegistered = isRegistered;
         _averageRating = rating;
         _feedbacks = feedbacks.take(5).toList();
+        _questions = questions;
         _isLoading = false;
       });
     } catch (e) {
@@ -143,6 +158,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                           _buildDescription(),
                           _buildLocationSection(),
                           _buildCapacitySection(),
+                          _buildQASection(),
                           if (_feedbacks.isNotEmpty) _buildFeedbackSection(),
                           const SizedBox(height: 100),
                         ],
@@ -151,6 +167,14 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                   ],
                 ),
       bottomNavigationBar: _event != null ? _buildBottomBar() : null,
+      floatingActionButton: _event != null
+          ? FloatingActionButton.extended(
+              onPressed: _showAIChat,
+              backgroundColor: _getSocietyColor(),
+              icon: const Icon(Icons.smart_toy),
+              label: const Text('Ask AI'),
+            )
+          : null,
     );
   }
 
@@ -827,8 +851,571 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     final displayHour = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
     return '$displayHour:$minute $period';
   }
+  
+  // Q&A Section
+  Future<List<EventQuestionModel>> _loadQuestions() async {
+    try {
+      final response = await SupabaseConfig.client
+          .from('event_questions')
+          .select('*')
+          .eq('event_id', widget.eventId)
+          .order('created_at', ascending: false)
+          .limit(10);
+          
+      return (response as List)
+          .map((json) => EventQuestionModel.fromJson(json))
+          .toList();
+    } catch (e) {
+      AppLogger.error('Error loading questions', e);
+      return [];
+    }
+  }
+  
+  Future<void> _postQuestion() async {
+    if (_questionController.text.trim().isEmpty) return;
+    
+    final authProvider = context.read<AuthProvider>();
+    final userId = authProvider.user?.id;
+    
+    if (userId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please login to post a question')),
+      );
+      return;
+    }
+    
+    setState(() => _isPostingQuestion = true);
+    
+    try {
+      await SupabaseConfig.client.from('event_questions').insert({
+        'event_id': widget.eventId,
+        'user_id': userId,
+        'question': _questionController.text.trim(),
+      });
+      
+      _questionController.clear();
+      final questions = await _loadQuestions();
+      
+      if (!mounted) return;
+      
+      setState(() {
+        _questions = questions;
+        _isPostingQuestion = false;
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Question posted!')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      
+      setState(() => _isPostingQuestion = false);
+      AppLogger.error('Error posting question', e);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: ${e.toString()}')),
+      );
+    }
+  }
+  
+  Widget _buildQASection() {
+    return Container(
+      margin: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Questions & Answers',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Text(
+                '${_questions.length} questions',
+                style: const TextStyle(
+                  color: AppColors.gray500,
+                  fontSize: 14,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          
+          // Ask question input
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Have a question about this event?',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _questionController,
+                    maxLines: 3,
+                    decoration: const InputDecoration(
+                      hintText: 'Ask your question here...',
+                      border: OutlineInputBorder(),
+                      filled: true,
+                      fillColor: AppColors.gray50,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: _isPostingQuestion ? null : _postQuestion,
+                      icon: _isPostingQuestion
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.send),
+                      label: Text(_isPostingQuestion ? 'Posting...' : 'Post Question'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _getSocietyColor(),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          
+          const SizedBox(height: 16),
+          
+          // Questions list
+          if (_questions.isEmpty)
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(32),
+                child: Center(
+                  child: Column(
+                    children: [
+                      Icon(
+                        Icons.question_answer_outlined,
+                        size: 48,
+                        color: Colors.grey.shade400,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'No questions yet',
+                        style: TextStyle(
+                          color: Colors.grey.shade600,
+                          fontSize: 16,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Be the first to ask a question!',
+                        style: TextStyle(
+                          color: AppColors.gray500,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            )
+          else
+            ..._questions.map((question) => _buildQuestionCard(question)),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildQuestionCard(EventQuestionModel question) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 16,
+                  backgroundColor: _getSocietyColor().withValues(alpha: 0.2),
+                  child: Icon(
+                    Icons.person,
+                    size: 16,
+                    color: _getSocietyColor(),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        question.userName ?? 'Anonymous',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
+                      ),
+                      Text(
+                        _formatQuestionTime(question.createdAt),
+                        style: const TextStyle(
+                          color: AppColors.gray500,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (question.isAnswered)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.success.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Text(
+                      'Answered',
+                      style: TextStyle(
+                        color: AppColors.success,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              question.question,
+              style: const TextStyle(
+                fontSize: 15,
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.thumb_up_outlined),
+                  iconSize: 18,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  onPressed: () {
+                    // Implement upvote
+                  },
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  '${question.upvotes}',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.gray600,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Icon(
+                  Icons.comment_outlined,
+                  size: 18,
+                  color: Colors.grey.shade600,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  '${question.answerCount} answers',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.gray600,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  String _formatQuestionTime(DateTime dateTime) {
+    final now = DateTime.now();
+    final difference = now.difference(dateTime);
+    
+    if (difference.inMinutes < 60) {
+      return '${difference.inMinutes}m ago';
+    } else if (difference.inHours < 24) {
+      return '${difference.inHours}h ago';
+    } else if (difference.inDays < 7) {
+      return '${difference.inDays}d ago';
+    } else {
+      return '${difference.inDays ~/ 7}w ago';
+    }
+  }
+  
+  // AI Chat Methods
+  void _showAIChat() {
+    if (_event == null) return;
+    
+    // Initialize AI with event context
+    _aiService.initSession();
+    
+    // Add initial context message
+    if (_aiMessages.isEmpty) {
+      _aiMessages.add(AIMessageModel.ai(
+        "Hi! I'm your AI assistant. I can answer questions about \"${_event!.title}\". What would you like to know?"
+      ));
+    }
+    
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _buildAIChatSheet(),
+    );
+  }
+  
+  Widget _buildAIChatSheet() {
+    return DraggableScrollableSheet(
+      initialChildSize: 0.9,
+      minChildSize: 0.5,
+      maxChildSize: 0.95,
+      builder: (context, scrollController) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            children: [
+              // Header
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: _getSocietyColor().withValues(alpha: 0.1),
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.smart_toy, color: _getSocietyColor()),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Ask AI About Event',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Text(
+                            _event!.title,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppColors.gray600,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+              ),
+              
+              // Messages
+              Expanded(
+                child: ListView.builder(
+                  controller: scrollController,
+                  padding: const EdgeInsets.all(16),
+                  itemCount: _aiMessages.length,
+                  itemBuilder: (context, index) {
+                    return _buildAIMessageBubble(_aiMessages[index]);
+                  },
+                ),
+              ),
+              
+              // Loading indicator
+              if (_isAIThinking)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: _getSocietyColor(),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      const Text(
+                        'AI is thinking...',
+                        style: TextStyle(
+                          color: AppColors.gray600,
+                          fontSize: 12,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              
+              // Input
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, -5),
+                    ),
+                  ],
+                ),
+                child: SafeArea(
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _aiQuestionController,
+                          decoration: InputDecoration(
+                            hintText: 'Ask about the event...',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(24),
+                            ),
+                            filled: true,
+                            fillColor: AppColors.gray50,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 12,
+                            ),
+                          ),
+                          maxLines: null,
+                          textInputAction: TextInputAction.send,
+                          onSubmitted: (_) => _sendAIMessage(),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      CircleAvatar(
+                        backgroundColor: _getSocietyColor(),
+                        child: IconButton(
+                          icon: const Icon(Icons.send, color: Colors.white, size: 20),
+                          onPressed: _isAIThinking ? null : _sendAIMessage,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+  
+  Widget _buildAIMessageBubble(AIMessageModel message) {
+    return Align(
+      alignment: message.isUser ? Alignment.centerRight : Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.75,
+        ),
+        decoration: BoxDecoration(
+          color: message.isUser
+              ? _getSocietyColor()
+              : AppColors.gray100,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Text(
+          message.content,
+          style: TextStyle(
+            color: message.isUser ? Colors.white : AppColors.gray900,
+            fontSize: 14,
+            height: 1.4,
+          ),
+        ),
+      ),
+    );
+  }
+  
+  Future<void> _sendAIMessage() async {
+    if (_aiQuestionController.text.trim().isEmpty || _isAIThinking) return;
+    
+    final userMessage = _aiQuestionController.text.trim();
+    _aiQuestionController.clear();
+    
+    // Create event context for AI
+    final eventContext = '''
+Event Information:
+- Title: ${_event!.title}
+- Description: ${_event!.description}
+- Date & Time: ${_formatDateTime(_event!.dateTime)}
+- Venue: ${_event!.venue}
+- Capacity: ${_event!.capacity} people
+- Registered: ${_event!.registeredCount} people
+- Type: ${_event!.eventType}
+- Society: ${_event!.society?.name ?? 'N/A'}
+${_event!.tags != null && _event!.tags!.isNotEmpty ? '- Tags: ${_event!.tags!.join(", ")}' : ''}
 
+User Question: $userMessage
+
+Please provide a helpful answer about this event. Be concise and friendly.
+''';
+    
+    setState(() {
+      _aiMessages.add(AIMessageModel.user(userMessage));
+      _isAIThinking = true;
+    });
+    
+    try {
+      final response = await _aiService.sendMessage(eventContext);
+      
+      if (!mounted) return;
+      
+      setState(() {
+        _aiMessages.add(response);
+        _isAIThinking = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      
+      AppLogger.error('AI error', e);
+      setState(() {
+        _aiMessages.add(AIMessageModel.ai(
+          'Sorry, I encountered an error. Please try again.'
+        ));
+        _isAIThinking = false;
+      });
+    }
+  }
+  
   String _formatEventType(String type) {
     return type[0].toUpperCase() + type.substring(1);
+  }
+  
+  @override
+  void dispose() {
+    _questionController.dispose();
+    _aiQuestionController.dispose();
+    super.dispose();
   }
 }

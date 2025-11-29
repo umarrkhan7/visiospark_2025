@@ -29,11 +29,11 @@ class RegistrationService {
       // Check if event is full
       final event = await _client
           .from('events')
-          .select('max_participants')
+          .select('capacity')
           .eq('id', eventId)
           .single();
 
-      if (event['max_participants'] != null) {
+      if (event['capacity'] != null) {
         final registrationCount = await _client
             .from('event_registrations')
             .select('id')
@@ -41,7 +41,7 @@ class RegistrationService {
             .eq('status', 'registered')
             .count();
 
-        if (registrationCount.count >= event['max_participants']) {
+        if (registrationCount.count >= event['capacity']) {
           throw Exception('Event is full');
         }
       }
@@ -51,11 +51,10 @@ class RegistrationService {
           .insert({
             'event_id': eventId,
             'user_id': userId,
-            'team_id': teamId,
             'status': 'registered',
             'registered_at': DateTime.now().toIso8601String(),
           })
-          .select('*, events!inner(*, societies!inner(*)), profiles!inner(*)')
+          .select('*, events!inner(*, societies!inner(*))')
           .single();
 
       AppLogger.success('User registered for event');
@@ -113,7 +112,7 @@ class RegistrationService {
       
       final response = await _client
           .from('event_registrations')
-          .select('*, events!inner(*, societies!inner(*)), profiles!inner(*)')
+          .select('*, events!inner(*, societies!inner(*))')
           .eq('user_id', userId)
           .order('registered_at', ascending: false);
 
@@ -136,7 +135,7 @@ class RegistrationService {
       
       final response = await _client
           .from('event_registrations')
-          .select('*, events!inner(*, societies!inner(*)), profiles!inner(*)')
+          .select('*, events!inner(*, societies!inner(*))')
           .eq('event_id', eventId)
           .order('registered_at');
 
@@ -178,7 +177,7 @@ class RegistrationService {
       
       final response = await _client
           .from('event_registrations')
-          .select('*, events!inner(*, societies!inner(*)), profiles!inner(*)')
+          .select('*, events!inner(*, societies!inner(*))')
           .eq('id', id)
           .maybeSingle();
 
@@ -201,7 +200,7 @@ class RegistrationService {
       
       final response = await _client
           .from('event_registrations')
-          .select('*, events!inner(*, societies!inner(*)), profiles!inner(*)')
+          .select('*, events!inner(*, societies!inner(*))')
           .eq('user_id', userId)
           .eq('status', 'registered')
           .gte('events.date_time', DateTime.now().toIso8601String())
@@ -232,7 +231,7 @@ class RegistrationService {
       
       final response = await _client
           .from('event_registrations')
-          .select('*, events!inner(*, societies!inner(*)), profiles!inner(*)')
+          .select('*, events!inner(*, societies!inner(*))')
           .eq('user_id', userId)
           .lt('events.date_time', DateTime.now().toIso8601String())
           .order('registered_at', ascending: false);
