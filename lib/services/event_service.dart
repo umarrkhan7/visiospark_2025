@@ -331,4 +331,98 @@ class EventService {
       rethrow;
     }
   }
+
+  // Get answers for a question
+  Future<List<Map<String, dynamic>>> getQuestionAnswers(String questionId) async {
+    try {
+      AppLogger.debug('Fetching answers for question: $questionId');
+      
+      // First get the answers
+      final answersResponse = await _client
+          .from('event_answers')
+          .select('*')
+          .eq('question_id', questionId)
+          .order('created_at', ascending: true);
+
+      final answers = answersResponse as List;
+      
+      // Then get user details for each answer
+      final enrichedAnswers = <Map<String, dynamic>>[];
+      for (final answer in answers) {
+        String userName = 'Anonymous';
+        
+        try {
+          final userProfile = await _client
+              .from('profiles')
+              .select('full_name')
+              .eq('id', answer['user_id'])
+              .maybeSingle();
+          
+          if (userProfile != null && userProfile['full_name'] != null) {
+            userName = userProfile['full_name'];
+          }
+        } catch (e) {
+          AppLogger.debug('Could not fetch user profile for answer: ${answer['id']}');
+        }
+        
+        enrichedAnswers.add({
+          'id': answer['id'],
+          'answer': answer['answer'],
+          'user_name': userName,
+          'created_at': DateTime.parse(answer['created_at']),
+        });
+      }
+      
+      AppLogger.success('Fetched ${enrichedAnswers.length} answers');
+      return enrichedAnswers;
+    } catch (e) {
+      AppLogger.error('Error fetching answers', e);
+      rethrow;
+    }
+  }
+
+  // Post an answer to a question
+  Future<void> postAnswer(String questionId, String answer) async {
+    try {
+      AppLogger.debug('Posting answer to question: $questionId');
+      
+      await _client.from('event_answers').insert({
+        'question_id': questionId,
+        'answer': answer,
+        'user_id': _client.auth.currentUser!.id,
+      });
+
+      AppLogger.success('Answer posted successfully');
+    } catch (e) {
+      AppLogger.error('Error posting answer', e);
+      rethrow;
+    }
+  }
+
+  // Upvote a question
+  Future<void> upvoteQuestion(String questionId) async {
+    try {
+      AppLogger.debug('Upvoting question: $questionId');
+      
+      // Get current upvote count
+      final question = await _client
+          .from('event_questions')
+          .select('upvotes')
+          .eq('id', questionId)
+          .single();
+      
+      final currentUpvotes = question['upvotes'] as int;
+      
+      // Increment upvote count
+      await _client
+          .from('event_questions')
+          .update({'upvotes': currentUpvotes + 1})
+          .eq('id', questionId);
+      
+      AppLogger.success('Question upvoted');
+    } catch (e) {
+      AppLogger.error('Error upvoting question', e);
+      rethrow;
+    }
+  }
 }
