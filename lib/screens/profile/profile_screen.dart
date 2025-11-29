@@ -12,6 +12,39 @@ import '../../widgets/cards/stat_card.dart';
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
 
+  void _showLogoutDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) => AlertDialog(
+        title: const Text('Logout'),
+        content: const Text('Are you sure you want to logout?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(dialogContext);
+              await context.read<AuthProvider>().signOut();
+              if (context.mounted) {
+                Navigator.pushNamedAndRemoveUntil(
+                  context,
+                  AppConstants.loginRoute,
+                  (route) => false,
+                );
+              }
+            },
+            child: Text(
+              'Logout',
+              style: TextStyle(color: AppColors.error),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
@@ -120,6 +153,15 @@ class ProfileScreen extends StatelessWidget {
                       Navigator.pushNamed(context, AppConstants.settingsRoute);
                     },
                   ),
+                  const Divider(height: 1),
+                  ListTile(
+                    leading: Icon(Icons.logout, color: AppColors.error),
+                    title: Text(
+                      'Logout',
+                      style: TextStyle(color: AppColors.error),
+                    ),
+                    onTap: () => _showLogoutDialog(context),
+                  ),
                 ],
               ),
             ),
@@ -210,16 +252,22 @@ class _ProfileHeader extends StatelessWidget {
 
   Future<void> _pickImage(BuildContext context, ImageSource source) async {
     final userProvider = context.read<UserProvider>();
+    final authProvider = context.read<AuthProvider>();
+    
     final success = await userProvider.uploadAvatar(source);
 
     if (success && context.mounted) {
-      context.read<AuthProvider>().refreshProfile();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Profile picture updated'),
-          backgroundColor: AppColors.success,
-        ),
-      );
+      // Refresh auth provider to update the UI immediately
+      await authProvider.refreshProfile();
+      
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Profile picture updated'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
     }
   }
 }

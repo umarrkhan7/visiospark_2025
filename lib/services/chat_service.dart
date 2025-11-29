@@ -162,8 +162,41 @@ class ChatService {
           .inFilter('id', roomIds)
           .order('created_at', ascending: false);
 
-      AppLogger.success('Fetched ${(rooms as List).length} chat rooms');
-      return (rooms).map((json) => ChatRoomModel.fromJson(json)).toList();
+      // Fetch last message for each room
+      final roomsWithMessages = <ChatRoomModel>[];
+      for (final roomJson in (rooms as List)) {
+        try {
+          // Get last message for this room
+          final lastMessageQuery = await _client
+              .from(SupabaseConfig.messagesTable)
+              .select('*, profiles(*)')
+              .eq('room_id', roomJson['id'])
+              .order('created_at', ascending: false)
+              .limit(1);
+          
+          if (lastMessageQuery.isNotEmpty) {
+            roomJson['last_message'] = lastMessageQuery.first;
+          }
+          
+          // Get unread count
+          final unreadCount = await _client
+              .from(SupabaseConfig.messagesTable)
+              .select('id')
+              .eq('room_id', roomJson['id'])
+              .neq('sender_id', currentUserId)
+              .eq('is_read', false)
+              .count();
+          
+          roomJson['unread_count'] = unreadCount.count;
+        } catch (e) {
+          AppLogger.error('Error fetching room details', e);
+        }
+        
+        roomsWithMessages.add(ChatRoomModel.fromJson(roomJson));
+      }
+
+      AppLogger.success('Fetched ${roomsWithMessages.length} chat rooms');
+      return roomsWithMessages;
     } catch (e) {
       AppLogger.error('Get chat rooms error', e);
       return [];

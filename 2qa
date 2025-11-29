@@ -1,0 +1,147 @@
+Mobile App Development Competition
+
+Theme: UniWeek - Student Week Event Management App
+
+Background:
+
+Spring semester is approaching, and the university is gearing up for Student Week, a week-long celebration featuring technical, literary, and sports activities organized by three student societies:
+
+1. ACM (Technical Society) - Handles coding competitions, coding riddles, workshops, and seminars.
+
+2. CLS (Literature & Pop Culture Society) - Handles debates, essay competitions,
+
+anime/season watchings, and pop culture activities.
+
+3. CSS (Sports Society) - Handles football, cricket, and other sports tournaments.
+
+You are tasked with developing a mobile app called UniWeek to manage student registration, event updates, and participation tracking.
+
+Objective:
+
+Create a mobile app prototype that allows:
+
+Society handlers to post events, track student registrations, and update event deta
+
+Students to browse events, register for multiple activities, and see their participation status.
+
+The app must be user-friendly, interactive, and integrate smart features like notifications. event filtering, or Al-driven suggestions.
+
+Key Features:
+
+1. Society Handler Dashboard (ACM, CLS, CSS):
+
+Event Management: Add new events, edit or delete events.
+
+Student Registration Overview: View a list of students registered for each event.
+
+Notifications: Push or in-app notifications to students about upcoming events. Al Assistance (Optional): Suggest event categories based on student trends or past participation.
+
+2. Student Dashboard:
+
+Event Discovery: Browse all events organized by ACM. CLS. and CSS.
+
+Event Registration: Register for events with a single click.
+
+Participation Status: See registered events, schedule, and event details.
+
+Al Assistance (Optional): Suggest events based on student interests or past participation.
+
+3. Event Details Page:
+
+Event name, description, date/time, venue, society organizer (ACM, CLS, or CSS).
+
+Registration button with confirmation.
+
+Optional "Add to Calendar" functionality.
+
+Additional Modules (Optional for Bonus Marks)
+
+Following are the modules that can be added to enhance the UniWeek application. Participants are encouraged to implement as many as possible.
+
+Important Guidelines:
+
+1. Modules listed with "must" are mandatory and must be fully developed.
+
+2. Modules listed with "optional" are bonus modules; if developed fully, they will provide bonus marks.
+
+3. Each module should be fully constructed, meaning it should be functional. integrated with the existing dashboards, and interact properly with related modules (e.g., registration, notifications, or analytics).
+
+4. Modules should be connected logically to existing features like student registration, society dashboards, and event management.
+
+5. The number of optional modules successfully developed will be considered bonus marks, so teams are encouraged to prioritize fully functional addition rather than partially implemented features.
+
+Here's the list of additional modules:
+
+1. Event Filtering & Search (must)
+
+Filter events by society, type, or date/time.
+
+Al suggestions based on student preferences or past participation.
+
+2. Leaderboards & Achievements (optional)
+
+Track top participants across ACM, CLS, and CSS.
+
+Award badges like "Top Coder" or "Star Debater."
+
+Al can highlight participation trends.
+
+3. Feedback & Ratings Module (must)
+
+Students can rate events after participation.
+
+Societies can analyze popularity or improvement areas.
+
+Al can summarize feedback trends.
+
+4. Group & Team Management (optional)
+
+Form teams for coding or sports events.
+
+Track team members and status.
+
+Al can suggest teams based on skills or past participation.
+
+5. Calendar / Reminder Integration (must)
+
+Weekly calendar view for registered events.
+
+Add reminders or push notifications for upcoming events.
+
+Al can prioritize reminders based on importance.
+
+7. Analytics & Reports for Societies (must)
+
+: Charts showing registrations, popularity trends, and participation rates.
+
+Al can generate insights like "Most popular events" or "Peak participation days."
+
+8. Chat / Discussion Module (optional)
+
+Students can discuss events, share tips, or ask questions.
+
+Al can moderate or summarize discussions.
+
+9. Event Waitlist & Capacity Management (optional)
+
+Students can join waitlists if events are full.
+
+Societies can manage event capacity.
+
+Al can predict which events may fill up soon.
+
+Technical Requirements:
+
+The app must have login/signup authentication for students and society handlers: is mandatory and not considered a separate module.
+
+The app must be connected to a database to store and retrieve data.
+
+The user interface must be intuitive, user-friendly, and visually appealing for the us
+
+Participants should aim to develop the maximum working app within the time lim
+
+The app should include at least one Al-powered feature such as event recommendations, summary notifications, or team suggestions (optional but recommended).
+
+Optional modules can be implemented for bonus marks, but all mandatory fea must be fully functional first.
+
+The final working app must be displayed on a mobile device to demonstrate fu functionality.

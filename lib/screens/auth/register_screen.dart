@@ -21,6 +21,27 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  
+  String _selectedRole = AppConstants.roleStudent;
+  String? _selectedSocietyId;
+  List<String> _selectedInterests = [];
+  
+  final List<String> _availableInterests = [
+    'Technical',
+    'Sports',
+    'Literary',
+    'Cultural',
+    'Music',
+    'Art',
+    'Gaming',
+    'Entrepreneurship',
+  ];
+  
+  final Map<String, String> _societies = {
+    AppConstants.societyACM: 'ACM - Association for Computing Machinery',
+    AppConstants.societyCLS: 'CLS - Cultural & Literary Society',
+    AppConstants.societyCSS: 'CSS - Computer Science Society',
+  };
 
   @override
   void dispose() {
@@ -33,12 +54,37 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   Future<void> _register() async {
     if (!_formKey.currentState!.validate()) return;
+    
+    // Validate society selection for handlers
+    if (_selectedRole == AppConstants.roleSocietyHandler && _selectedSocietyId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select a society'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+    
+    // Validate interests selection for students
+    if (_selectedRole == AppConstants.roleStudent && _selectedInterests.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select at least one interest'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
 
     final authProvider = context.read<AuthProvider>();
     final success = await authProvider.signUp(
       email: _emailController.text.trim(),
       password: _passwordController.text,
       fullName: _nameController.text.trim(),
+      role: _selectedRole,
+      societyId: _selectedRole == AppConstants.roleSocietyHandler ? _selectedSocietyId : null,
+      interests: _selectedRole == AppConstants.roleStudent ? _selectedInterests : null,
     );
 
     if (success && mounted) {
@@ -134,7 +180,125 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   textInputAction: TextInputAction.done,
                   onSubmitted: (_) => _register(),
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 24),
+                
+                // Role Selection
+                Text(
+                  'I am a:',
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  decoration: BoxDecoration(
+                    border: Border.all(color: AppColors.gray300),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    children: [
+                      RadioListTile<String>(
+                        title: const Text('Student'),
+                        subtitle: const Text('Browse and register for events'),
+                        value: AppConstants.roleStudent,
+                        groupValue: _selectedRole,
+                        onChanged: (value) {
+                          setState(() {
+                            _selectedRole = value!;
+                            _selectedSocietyId = null;
+                          });
+                        },
+                      ),
+                      const Divider(height: 1),
+                      RadioListTile<String>(
+                        title: const Text('Society Handler'),
+                        subtitle: const Text('Manage events for your society'),
+                        value: AppConstants.roleSocietyHandler,
+                        groupValue: _selectedRole,
+                        onChanged: (value) {
+                          setState(() {
+                            _selectedRole = value!;
+                            _selectedInterests = [];
+                          });
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+                
+                // Society Selection (for handlers)
+                if (_selectedRole == AppConstants.roleSocietyHandler) ...[
+                  Text(
+                    'Select Your Society:',
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    decoration: BoxDecoration(
+                      border: Border.all(color: AppColors.gray300),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: DropdownButtonFormField<String>(
+                      value: _selectedSocietyId,
+                      decoration: const InputDecoration(
+                        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        border: InputBorder.none,
+                        hintText: 'Choose a society',
+                      ),
+                      items: _societies.entries.map((entry) {
+                        return DropdownMenuItem(
+                          value: entry.key,
+                          child: Text(entry.value),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        setState(() {
+                          _selectedSocietyId = value;
+                        });
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                ],
+                
+                // Interests Selection (for students)
+                if (_selectedRole == AppConstants.roleStudent) ...[
+                  Text(
+                    'Select Your Interests:',
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: _availableInterests.map((interest) {
+                      final isSelected = _selectedInterests.contains(interest);
+                      return FilterChip(
+                        label: Text(interest),
+                        selected: isSelected,
+                        onSelected: (selected) {
+                          setState(() {
+                            if (selected) {
+                              _selectedInterests.add(interest);
+                            } else {
+                              _selectedInterests.remove(interest);
+                            }
+                          });
+                        },
+                        selectedColor: AppColors.primary.withValues(alpha: 0.2),
+                        checkmarkColor: AppColors.primary,
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 24),
+                ],
+                
+                const SizedBox(height: 8),
                 
                 CustomButton(
                   text: 'Create Account',

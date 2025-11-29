@@ -39,4 +39,43 @@ class AppConstants {
   static const String statusPending = 'pending';
   static const String statusCompleted = 'completed';
   static const String statusCancelled = 'cancelled';
+
+  // UniWeek - User Roles
+  static const String roleStudent = 'student';
+  static const String roleSocietyHandler = 'society_handler';
+
+  // UniWeek - Societies
+  static const String societyACM = 'ACM';
+  static const String societyCLS = 'CLS';
+  static const String societyCSS = 'CSS';
+
+  // UniWeek - Event Status
+  static const String eventUpcoming = 'upcoming';
+  static const String eventOngoing = 'ongoing';
+  static const String eventCompleted = 'completed';
+  static const String eventCancelled = 'cancelled';
+
+  // UniWeek - Event Types
+  static const String eventTechnical = 'technical';
+  static const String eventLiterary = 'literary';
+  static const String eventSports = 'sports';
+
+  // UniWeek - Registration Status
+  static const String registrationRegistered = 'registered';
+  static const String registrationAttended = 'attended';
+  static const String registrationCancelled = 'cancelled';
+
+  // UniWeek - Routes
+  static const String eventsRoute = '/events';
+  static const String eventDetailRoute = '/event-detail';
+  static const String myEventsRoute = '/my-events';
+  static const String createEventRoute = '/create-event';
+  static const String editEventRoute = '/edit-event';
+  static const String eventRegistrationsRoute = '/event-registrations';
+  static const String societyDashboardRoute = '/society-dashboard';
+  static const String societyAnalyticsRoute = '/society-analytics';
+  static const String eventFeedbackRoute = '/event-feedback';
+  static const String calendarRoute = '/calendar';
+  static const String leaderboardRoute = '/leaderboard';
+  static const String teamsRoute = '/teams';
 }

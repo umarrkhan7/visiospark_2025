@@ -5,6 +5,11 @@ class UserModel {
   final String? avatarUrl;
   final String? phone;
   final String? bio;
+  final String role; // 'student' or 'society_handler'
+  final String? societyId; // For society handlers (ACM, CLS, CSS)
+  final String? societyName; // For display purposes
+  final List<String>? interests; // For students (event recommendations)
+  final int participationCount; // For leaderboard
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -15,6 +20,11 @@ class UserModel {
     this.avatarUrl,
     this.phone,
     this.bio,
+    this.role = 'student',
+    this.societyId,
+    this.societyName,
+    this.interests,
+    this.participationCount = 0,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -27,6 +37,13 @@ class UserModel {
       avatarUrl: json['avatar_url'] as String?,
       phone: json['phone'] as String?,
       bio: json['bio'] as String?,
+      role: json['role'] as String? ?? 'student',
+      societyId: json['society_id'] as String?,
+      societyName: json['society_name'] as String?,
+      interests: json['interests'] != null 
+          ? List<String>.from(json['interests'] as List)
+          : null,
+      participationCount: json['participation_count'] as int? ?? 0,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
     );
@@ -40,6 +57,11 @@ class UserModel {
       'avatar_url': avatarUrl,
       'phone': phone,
       'bio': bio,
+      'role': role,
+      'society_id': societyId,
+      'society_name': societyName,
+      'interests': interests,
+      'participation_count': participationCount,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };
@@ -52,6 +74,11 @@ class UserModel {
     String? avatarUrl,
     String? phone,
     String? bio,
+    String? role,
+    String? societyId,
+    String? societyName,
+    List<String>? interests,
+    int? participationCount,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -62,6 +89,11 @@ class UserModel {
       avatarUrl: avatarUrl ?? this.avatarUrl,
       phone: phone ?? this.phone,
       bio: bio ?? this.bio,
+      role: role ?? this.role,
+      societyId: societyId ?? this.societyId,
+      societyName: societyName ?? this.societyName,
+      interests: interests ?? this.interests,
+      participationCount: participationCount ?? this.participationCount,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -78,5 +110,23 @@ class UserModel {
       return parts[0][0].toUpperCase();
     }
     return email[0].toUpperCase();
+  }
+
+  // Role-based getters
+  bool get isStudent => role == 'student';
+  bool get isSocietyHandler => role == 'society_handler';
+  
+  // Society helper
+  bool get hasSociety => societyId != null && societyId!.isNotEmpty;
+  
+  // Helper for display
+  String get roleDisplay {
+    switch (role) {
+      case 'society_handler':
+        return hasSociety ? 'Society Handler ($societyName)' : 'Society Handler';
+      case 'student':
+      default:
+        return 'Student';
+    }
   }
 }

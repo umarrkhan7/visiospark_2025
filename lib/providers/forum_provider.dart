@@ -34,22 +34,26 @@ class ForumProvider extends ChangeNotifier {
 
     AppLogger.info('Loading posts (offset: ${_posts.length})');
     _isLoading = true;
-    if (refresh) notifyListeners();
+    notifyListeners();
 
     try {
+      const pageSize = 20; // Default limit from forum_service.dart
       final newPosts = await _forumService.getPosts(
         offset: _posts.length,
         category: _selectedCategory,
         searchQuery: _searchQuery.isNotEmpty ? _searchQuery : null,
       );
 
-      if (newPosts.isEmpty) {
+      // If we got fewer posts than requested, we've reached the end
+      if (newPosts.isEmpty || newPosts.length < pageSize) {
         _hasMore = false;
-      } else {
+      }
+      
+      if (newPosts.isNotEmpty) {
         _posts.addAll(newPosts);
       }
       _error = null;
-      AppLogger.success('Loaded ${newPosts.length} posts');
+      AppLogger.success('Loaded ${newPosts.length} posts (hasMore: $_hasMore)');
     } catch (e) {
       AppLogger.error('Load posts failed', e);
       _error = e.toString();
@@ -228,21 +232,67 @@ class ForumProvider extends ChangeNotifier {
     try {
       await _forumService.voteOnPost(postId, isUpvote ? 'up' : 'down');
       
+      // Optimistically update UI
       final index = _posts.indexWhere((p) => p.id == postId);
       if (index != -1) {
         final post = _posts[index];
+        final currentUserVote = post.userVote;
+        
+        // Calculate new vote counts based on voting logic
+        int newUpvotes = post.upvotes;
+        int newDownvotes = post.downvotes;
+        int? newUserVote;
+        
+        if (isUpvote) {
+          if (currentUserVote == 1) {
+            // Remove upvote
+            newUpvotes--;
+            newUserVote = null;
+          } else if (currentUserVote == -1) {
+            // Change from downvote to upvote
+            newUpvotes++;
+            newDownvotes--;
+            newUserVote = 1;
+          } else {
+            // Add new upvote
+            newUpvotes++;
+            newUserVote = 1;
+          }
+        }
+        
         _posts[index] = post.copyWith(
-          upvotes: isUpvote ? post.upvotes + 1 : post.upvotes,
-          downvotes: !isUpvote ? post.downvotes + 1 : post.downvotes,
-          userVote: isUpvote ? 1 : -1,
+          upvotes: newUpvotes,
+          downvotes: newDownvotes,
+          userVote: newUserVote,
         );
       }
 
       if (_currentPost?.id == postId) {
-        _currentPost = _currentPost!.copyWith(
-          upvotes: isUpvote ? _currentPost!.upvotes + 1 : _currentPost!.upvotes,
-          downvotes: !isUpvote ? _currentPost!.downvotes + 1 : _currentPost!.downvotes,
-          userVote: isUpvote ? 1 : -1,
+        final post = _currentPost!;
+        final currentUserVote = post.userVote;
+        
+        int newUpvotes = post.upvotes;
+        int newDownvotes = post.downvotes;
+        int? newUserVote;
+        
+        if (isUpvote) {
+          if (currentUserVote == 1) {
+            newUpvotes--;
+            newUserVote = null;
+          } else if (currentUserVote == -1) {
+            newUpvotes++;
+            newDownvotes--;
+            newUserVote = 1;
+          } else {
+            newUpvotes++;
+            newUserVote = 1;
+          }
+        }
+        
+        _currentPost = post.copyWith(
+          upvotes: newUpvotes,
+          downvotes: newDownvotes,
+          userVote: newUserVote,
         );
       }
 

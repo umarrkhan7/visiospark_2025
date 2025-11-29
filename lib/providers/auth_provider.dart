@@ -67,6 +67,9 @@ class AuthProvider extends ChangeNotifier {
     required String email,
     required String password,
     String? fullName,
+    String? role,
+    String? societyId,
+    List<String>? interests,
   }) async {
     try {
       AppLogger.info('SignUp attempt: $email');
@@ -78,6 +81,9 @@ class AuthProvider extends ChangeNotifier {
         email: email,
         password: password,
         fullName: fullName,
+        role: role,
+        societyId: societyId,
+        interests: interests,
       );
 
       await _loadUserProfile();

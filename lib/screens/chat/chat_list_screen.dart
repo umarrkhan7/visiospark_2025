@@ -41,6 +41,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
       ),
       body: _buildBody(chatProvider),
       floatingActionButton: FloatingActionButton(
+        heroTag: 'chatFab',
         onPressed: () {
           Navigator.pushNamed(context, AppConstants.newChatRoute);
         },

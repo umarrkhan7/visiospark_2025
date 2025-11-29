@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../services/dashboard_service.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/cards/stat_card.dart';
 import '../../widgets/charts/bar_chart_widget.dart';
 import '../../widgets/charts/line_chart_widget.dart';
 import '../../widgets/charts/pie_chart_widget.dart';
+import '../../widgets/common/loading_widget.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -15,6 +17,29 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
+  final _dashboardService = DashboardService();
+  Map<String, dynamic>? _dashboardStats;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDashboardData();
+  }
+
+  Future<void> _loadDashboardData() async {
+    setState(() => _isLoading = true);
+    try {
+      final stats = await _dashboardService.getDashboardStats();
+      setState(() {
+        _dashboardStats = stats;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() => _isLoading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
@@ -32,38 +57,37 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ],
       ),
       body: RefreshIndicator(
-        onRefresh: () async {
-          await Future.delayed(const Duration(seconds: 1));
-        },
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(16),
+        onRefresh: _loadDashboardData,
+        child: _isLoading
+            ? const Center(child: LoadingWidget())
+            : SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildWelcomeSection(user?.fullName ?? 'User'),
+                    const SizedBox(height: 32),
 
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildWelcomeSection(user?.fullName ?? 'User'),
-              const SizedBox(height: 32),
+                    _buildStatsGrid(),
+                    const SizedBox(height: 24),
 
-              _buildStatsGrid(),
-              const SizedBox(height: 24),
+                    _buildActivityChart(),
+                    const SizedBox(height: 24),
 
-              _buildActivityChart(),
-              const SizedBox(height: 24),
+                    _buildDistributionSection(),
+                    const SizedBox(height: 24),
 
-              _buildDistributionSection(),
-              const SizedBox(height: 24),
+                    _buildProgressChart(),
+                    const SizedBox(height: 24),
 
-              _buildProgressChart(),
-              const SizedBox(height: 24),
+                    _buildQuickActions(),
+                    const SizedBox(height: 24),
 
-              _buildQuickActions(),
-              const SizedBox(height: 24),
-
-              _buildRecentActivity(),
-            ],
-          ),
-        ),
+                    _buildRecentActivity(),
+                  ],
+                ),
+              ),
       ),
     );
   }
@@ -155,28 +179,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildStatsGrid() {
+    if (_dashboardStats == null) {
+      return const SizedBox.shrink();
+    }
+
     final stats = [
       {
         'title': 'Total Posts',
-        'value': '24',
+        'value': _dashboardStats!['totalPosts'].toString(),
         'icon': Icons.article,
         'color': AppColors.primary,
       },
       {
         'title': 'Messages',
-        'value': '156',
+        'value': _dashboardStats!['totalMessages'].toString(),
         'icon': Icons.message,
         'color': AppColors.success,
       },
       {
         'title': 'AI Queries',
-        'value': '42',
+        'value': _dashboardStats!['aiQueries'].toString(),
         'icon': Icons.smart_toy,
         'color': AppColors.warning,
       },
       {
         'title': 'Connections',
-        'value': '18',
+        'value': _dashboardStats!['connections'].toString(),
         'icon': Icons.people,
         'color': AppColors.info,
       },
@@ -205,15 +233,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildActivityChart() {
-    final data = [
-      BarChartData(label: 'Mon', value: 12),
-      BarChartData(label: 'Tue', value: 19),
-      BarChartData(label: 'Wed', value: 8),
-      BarChartData(label: 'Thu', value: 15),
-      BarChartData(label: 'Fri', value: 22),
-      BarChartData(label: 'Sat', value: 10),
-      BarChartData(label: 'Sun', value: 5),
-    ];
+    if (_dashboardStats == null) {
+      return const SizedBox.shrink();
+    }
+
+    final weeklyActivity = _dashboardStats!['weeklyActivity'] as List<dynamic>;
+    final data = weeklyActivity
+        .map((day) => BarChartData(
+              label: day['label'] as String,
+              value: (day['value'] as int).toDouble(),
+            ))
+        .toList();
 
     return Card(
       child: Padding(
@@ -243,10 +273,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildDistributionSection() {
+    if (_dashboardStats == null) {
+      return const SizedBox.shrink();
+    }
+
+    final distribution = _dashboardStats!['distribution'] as Map<String, dynamic>;
     final data = [
-      PieChartData(label: 'Posts', value: 35, color: AppColors.primary),
-      PieChartData(label: 'Chats', value: 45, color: AppColors.success),
-      PieChartData(label: 'AI', value: 20, color: AppColors.warning),
+      PieChartData(
+        label: 'Posts',
+        value: (distribution['posts'] as int).toDouble(),
+        color: AppColors.primary,
+      ),
+      PieChartData(
+        label: 'Chats',
+        value: (distribution['chats'] as int).toDouble(),
+        color: AppColors.success,
+      ),
+      PieChartData(
+        label: 'AI',
+        value: (distribution['ai'] as int).toDouble(),
+        color: AppColors.warning,
+      ),
     ];
 
     return Card(
@@ -371,28 +418,48 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildRecentActivity() {
-    final activities = [
-      {
-        'title': 'Posted a new question',
-        'time': '2 hours ago',
-        'icon': Icons.article,
-      },
-      {
-        'title': 'Received 5 upvotes',
-        'time': '4 hours ago',
-        'icon': Icons.thumb_up,
-      },
-      {
-        'title': 'Started a conversation',
-        'time': 'Yesterday',
-        'icon': Icons.chat,
-      },
-      {
-        'title': 'AI generated a summary',
-        'time': 'Yesterday',
-        'icon': Icons.smart_toy,
-      },
-    ];
+    if (_dashboardStats == null) {
+      return const SizedBox.shrink();
+    }
+
+    final recentActivity = _dashboardStats!['recentActivity'] as List<dynamic>;
+    
+    if (recentActivity.isEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Recent Activity',
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
+          const SizedBox(height: 12),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Center(
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.history,
+                      size: 48,
+                      color: Colors.grey.shade400,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'No recent activity',
+                      style: TextStyle(
+                        color: Colors.grey.shade600,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -412,16 +479,39 @@ class _DashboardScreenState extends State<DashboardScreen> {
           child: ListView.separated(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            itemCount: activities.length,
+            itemCount: recentActivity.length,
             separatorBuilder: (_, __) => const Divider(height: 1),
             itemBuilder: (context, index) {
-              final activity = activities[index];
+              final activity = recentActivity[index];
+              final type = activity['type'] as String;
+              
+              IconData icon;
+              Color iconColor = AppColors.primary;
+              
+              switch (type) {
+                case 'post':
+                  icon = Icons.article;
+                  iconColor = AppColors.primary;
+                  break;
+                case 'message':
+                  icon = Icons.message;
+                  iconColor = AppColors.success;
+                  break;
+                case 'ai':
+                  icon = Icons.smart_toy;
+                  iconColor = AppColors.warning;
+                  break;
+                default:
+                  icon = Icons.notifications;
+                  iconColor = AppColors.info;
+              }
+              
               return ListTile(
                 leading: CircleAvatar(
-                  backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+                  backgroundColor: iconColor.withValues(alpha: 0.1),
                   child: Icon(
-                    activity['icon'] as IconData,
-                    color: AppColors.primary,
+                    icon,
+                    color: iconColor,
                     size: 20,
                   ),
                 ),

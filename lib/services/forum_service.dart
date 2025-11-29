@@ -14,6 +14,7 @@ class ForumService {
     bool ascending = false,
   }) async {
     try {
+      final userId = SupabaseConfig.currentUserId;
       AppLogger.debug('Fetching posts (limit: $limit, offset: $offset)');
       var query = _client
           .from(SupabaseConfig.forumPostsTable)
@@ -36,12 +37,39 @@ class ForumService {
           .range(offset, offset + limit - 1);
 
       AppLogger.success('Fetched ${(response as List).length} posts');
+      
+      // Fetch user votes for all posts
+      List<String> postIds = (response as List).map((p) => p['id'] as String).toList();
+      Map<String, int> userVotes = {};
+      
+      if (userId != null && postIds.isNotEmpty) {
+        try {
+          final votesResponse = await _client
+              .from(SupabaseConfig.votesTable)
+              .select('post_id, vote_type')
+              .eq('user_id', userId)
+              .inFilter('post_id', postIds);
+          
+          for (var vote in votesResponse) {
+            userVotes[vote['post_id']] = vote['vote_type'] == 'up' ? 1 : -1;
+          }
+        } catch (e) {
+          AppLogger.warning('Failed to fetch user votes', e);
+        }
+      }
+      
       return (response).map((json) {
         if (json['comment_count'] is List && (json['comment_count'] as List).isNotEmpty) {
           json['comment_count'] = json['comment_count'][0]['count'];
         } else {
           json['comment_count'] = 0;
         }
+        
+        // Add user vote if exists
+        if (userVotes.containsKey(json['id'])) {
+          json['user_vote'] = userVotes[json['id']];
+        }
+        
         return ForumPostModel.fromJson(json);
       }).toList();
     } catch (e) {

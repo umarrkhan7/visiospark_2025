@@ -80,6 +80,7 @@ class _ForumListScreenState extends State<ForumListScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton(
+        heroTag: 'forumFab',
         onPressed: () async {
           await Navigator.pushNamed(context, AppConstants.createPostRoute);
         },
@@ -224,10 +225,8 @@ class _PostCard extends StatelessWidget {
               const SizedBox(height: 12),
               Row(
                 children: [
-                  _StatChip(
-                    icon: Icons.arrow_upward,
-                    value: post.score.toString(),
-                    color: post.score > 0 ? AppColors.success : AppColors.gray500,
+                  _VoteButton(
+                    post: post,
                   ),
                   const SizedBox(width: 16),
                   _StatChip(
@@ -243,6 +242,50 @@ class _PostCard extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _VoteButton extends StatelessWidget {
+  final ForumPostModel post;
+
+  const _VoteButton({
+    required this.post,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isUpvoted = post.userVote == 1;
+    final color = isUpvoted 
+        ? AppColors.primary 
+        : (post.score > 0 ? AppColors.success : AppColors.gray500);
+
+    return InkWell(
+      onTap: () async {
+        await context.read<ForumProvider>().voteOnPost(post.id, true);
+      },
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: Row(
+          children: [
+            Icon(
+              isUpvoted ? Icons.arrow_upward : Icons.arrow_upward_outlined,
+              size: 18,
+              color: color,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              post.score.toString(),
+              style: TextStyle(
+                color: color,
+                fontSize: 12,
+                fontWeight: isUpvoted ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+          ],
         ),
       ),
     );

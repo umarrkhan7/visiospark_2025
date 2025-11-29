@@ -16,18 +16,32 @@ class AuthService {
     required String email,
     required String password,
     String? fullName,
+    String? role,
+    String? societyId,
+    List<String>? interests,
   }) async {
     try {
       AppLogger.info('SignUp request', email);
       final response = await _auth.signUp(
         email: email,
         password: password,
-        data: {'full_name': fullName},
+        data: {
+          'full_name': fullName,
+          'role': role,
+          'society_id': societyId,
+          'interests': interests,
+        },
       );
 
       if (response.user != null) {
         await Future.delayed(const Duration(milliseconds: 500));
-        await _ensureProfileExists(response.user!, fullName);
+        await _ensureProfileExists(
+          response.user!,
+          fullName,
+          role: role,
+          societyId: societyId,
+          interests: interests,
+        );
       }
 
       AppLogger.success('User signed up', response.user?.email);
@@ -38,7 +52,13 @@ class AuthService {
     }
   }
 
-  Future<void> _ensureProfileExists(User user, String? fullName) async {
+  Future<void> _ensureProfileExists(
+    User user,
+    String? fullName, {
+    String? role,
+    String? societyId,
+    List<String>? interests,
+  }) async {
     try {
       AppLogger.debug('Checking profile for user', user.id);
       
@@ -54,6 +74,9 @@ class AuthService {
           'id': user.id,
           'email': user.email,
           'full_name': fullName,
+          'role': role ?? 'student',
+          'society_id': societyId,
+          'interests': interests,
           'created_at': DateTime.now().toIso8601String(),
           'updated_at': DateTime.now().toIso8601String(),
         });

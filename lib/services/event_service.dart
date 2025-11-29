@@ -1,0 +1,336 @@
+import '../core/config/supabase_config.dart';
+import '../core/utils/logger.dart';
+import '../models/event_model.dart';
+
+class EventService {
+  final _client = SupabaseConfig.client;
+
+  // Get all events with optional filters
+  Future<List<EventModel>> getEvents({
+    String? societyId,
+    String? status,
+    String? eventType,
+    DateTime? startDate,
+    DateTime? endDate,
+  }) async {
+    try {
+      AppLogger.debug('Fetching events with filters');
+      var query = _client
+          .from('events')
+          .select('*, societies!inner(*)');
+
+      if (societyId != null) {
+        query = query.eq('society_id', societyId);
+      }
+
+      if (status != null) {
+        query = query.eq('status', status);
+      }
+
+      if (eventType != null) {
+        query = query.eq('event_type', eventType);
+      }
+
+      if (startDate != null) {
+        query = query.gte('start_time', startDate.toIso8601String());
+      }
+
+      if (endDate != null) {
+        query = query.lte('start_time', endDate.toIso8601String());
+      }
+
+      final response = await query.order('start_time');
+
+      final events = (response as List)
+          .map((json) => EventModel.fromJson(json))
+          .toList();
+
+      AppLogger.success('Fetched ${events.length} events');
+      return events;
+    } catch (e) {
+      AppLogger.error('Error fetching events', e);
+      rethrow;
+    }
+  }
+
+  // Get event by ID
+  Future<EventModel?> getEventById(String id) async {
+    try {
+      AppLogger.debug('Fetching event: $id');
+      final response = await _client
+          .from('events')
+          .select('*, societies!inner(*)')
+          .eq('id', id)
+          .maybeSingle();
+
+      if (response == null) {
+        AppLogger.info('Event not found: $id');
+        return null;
+      }
+
+      AppLogger.success('Fetched event: ${response['title']}');
+      return EventModel.fromJson(response);
+    } catch (e) {
+      AppLogger.error('Error fetching event', e);
+      rethrow;
+    }
+  }
+
+  // Get upcoming events
+  Future<List<EventModel>> getUpcomingEvents({String? societyId}) async {
+    try {
+      AppLogger.debug('Fetching upcoming events');
+      var query = _client
+          .from('events')
+          .select('*, societies!inner(*)')
+          .eq('status', 'upcoming')
+          .gte('start_time', DateTime.now().toIso8601String());
+
+      if (societyId != null) {
+        query = query.eq('society_id', societyId);
+      }
+
+      final response = await query.order('start_time');
+
+      final events = (response as List)
+          .map((json) => EventModel.fromJson(json))
+          .toList();
+
+      AppLogger.success('Fetched ${events.length} upcoming events');
+      return events;
+    } catch (e) {
+      AppLogger.error('Error fetching upcoming events', e);
+      rethrow;
+    }
+  }
+
+  // Create new event (society handler only)
+  Future<EventModel> createEvent({
+    required String title,
+    required String description,
+    required String societyId,
+    required DateTime startTime,
+    required DateTime endTime,
+    required String location,
+    required String eventType,
+    int? maxParticipants,
+    String? imageUrl,
+    List<String>? tags,
+    Map<String, dynamic>? metadata,
+  }) async {
+    try {
+      AppLogger.debug('Creating new event: $title');
+      
+      final response = await _client
+          .from('events')
+          .insert({
+            'title': title,
+            'description': description,
+            'society_id': societyId,
+            'start_time': startTime.toIso8601String(),
+            'end_time': endTime.toIso8601String(),
+            'location': location,
+            'event_type': eventType,
+            'max_participants': maxParticipants,
+            'image_url': imageUrl,
+            'tags': tags,
+            'metadata': metadata,
+            'status': 'upcoming',
+            'created_at': DateTime.now().toIso8601String(),
+          })
+          .select('*, societies!inner(*)')
+          .single();
+
+      AppLogger.success('Event created: ${response['title']}');
+      return EventModel.fromJson(response);
+    } catch (e) {
+      AppLogger.error('Error creating event', e);
+      rethrow;
+    }
+  }
+
+  // Update event
+  Future<EventModel> updateEvent(
+    String id, {
+    String? title,
+    String? description,
+    DateTime? startTime,
+    DateTime? endTime,
+    String? location,
+    String? eventType,
+    int? maxParticipants,
+    String? status,
+    String? imageUrl,
+    List<String>? tags,
+    Map<String, dynamic>? metadata,
+  }) async {
+    try {
+      AppLogger.debug('Updating event: $id');
+      
+      final updates = <String, dynamic>{
+        'updated_at': DateTime.now().toIso8601String(),
+      };
+
+      if (title != null) updates['title'] = title;
+      if (description != null) updates['description'] = description;
+      if (startTime != null) updates['start_time'] = startTime.toIso8601String();
+      if (endTime != null) updates['end_time'] = endTime.toIso8601String();
+      if (location != null) updates['location'] = location;
+      if (eventType != null) updates['event_type'] = eventType;
+      if (maxParticipants != null) updates['max_participants'] = maxParticipants;
+      if (status != null) updates['status'] = status;
+      if (imageUrl != null) updates['image_url'] = imageUrl;
+      if (tags != null) updates['tags'] = tags;
+      if (metadata != null) updates['metadata'] = metadata;
+
+      final response = await _client
+          .from('events')
+          .update(updates)
+          .eq('id', id)
+          .select('*, societies!inner(*)')
+          .single();
+
+      AppLogger.success('Event updated: ${response['title']}');
+      return EventModel.fromJson(response);
+    } catch (e) {
+      AppLogger.error('Error updating event', e);
+      rethrow;
+    }
+  }
+
+  // Delete event
+  Future<void> deleteEvent(String id) async {
+    try {
+      AppLogger.debug('Deleting event: $id');
+      await _client
+          .from('events')
+          .delete()
+          .eq('id', id);
+
+      AppLogger.success('Event deleted: $id');
+    } catch (e) {
+      AppLogger.error('Error deleting event', e);
+      rethrow;
+    }
+  }
+
+  // Cancel event
+  Future<EventModel> cancelEvent(String id, String reason) async {
+    try {
+      AppLogger.debug('Cancelling event: $id');
+      
+      final response = await _client
+          .from('events')
+          .update({
+            'status': 'cancelled',
+            'metadata': {'cancellation_reason': reason},
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id', id)
+          .select('*, societies!inner(*)')
+          .single();
+
+      AppLogger.success('Event cancelled: ${response['title']}');
+      return EventModel.fromJson(response);
+    } catch (e) {
+      AppLogger.error('Error cancelling event', e);
+      rethrow;
+    }
+  }
+
+  // Get events by user interests (personalized recommendations)
+  Future<List<EventModel>> getRecommendedEvents(List<String> interests) async {
+    try {
+      AppLogger.debug('Fetching recommended events for interests: $interests');
+      
+      final response = await _client
+          .from('events')
+          .select('*, societies!inner(*)')
+          .eq('status', 'upcoming')
+          .gte('start_time', DateTime.now().toIso8601String())
+          .overlaps('tags', interests)
+          .order('start_time')
+          .limit(20);
+
+      final events = (response as List)
+          .map((json) => EventModel.fromJson(json))
+          .toList();
+
+      AppLogger.success('Fetched ${events.length} recommended events');
+      return events;
+    } catch (e) {
+      AppLogger.error('Error fetching recommended events', e);
+      rethrow;
+    }
+  }
+
+  // Search events by title or description
+  Future<List<EventModel>> searchEvents(String query) async {
+    try {
+      AppLogger.debug('Searching events: $query');
+      
+      final response = await _client
+          .from('events')
+          .select('*, societies!inner(*)')
+          .or('title.ilike.%$query%,description.ilike.%$query%')
+          .order('start_time');
+
+      final events = (response as List)
+          .map((json) => EventModel.fromJson(json))
+          .toList();
+
+      AppLogger.success('Found ${events.length} events');
+      return events;
+    } catch (e) {
+      AppLogger.error('Error searching events', e);
+      rethrow;
+    }
+  }
+
+  // Get event statistics
+  Future<Map<String, dynamic>> getEventStats(String eventId) async {
+    try {
+      AppLogger.debug('Fetching event stats: $eventId');
+      
+      // Get registrations count
+      final registrationsCount = await _client
+          .from('event_registrations')
+          .select('id')
+          .eq('event_id', eventId)
+          .eq('status', 'registered')
+          .count();
+
+      // Get attended count
+      final attendedCount = await _client
+          .from('event_registrations')
+          .select('id')
+          .eq('event_id', eventId)
+          .eq('status', 'attended')
+          .count();
+
+      // Get feedback count and average rating
+      final feedbackResponse = await _client
+          .from('event_feedback')
+          .select('rating')
+          .eq('event_id', eventId);
+
+      final feedbacks = feedbackResponse as List;
+      final avgRating = feedbacks.isEmpty
+          ? 0.0
+          : feedbacks.map((f) => f['rating'] as int).reduce((a, b) => a + b) / feedbacks.length;
+
+      final stats = {
+        'total_registrations': registrationsCount.count,
+        'total_attended': attendedCount.count,
+        'total_feedback': feedbacks.length,
+        'average_rating': avgRating,
+      };
+
+      AppLogger.success('Fetched event stats');
+      return stats;
+    } catch (e) {
+      AppLogger.error('Error fetching event stats', e);
+      rethrow;
+    }
+  }
+}
